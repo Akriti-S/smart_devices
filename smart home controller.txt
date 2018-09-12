@@ -1,0 +1,322 @@
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+//password=payment1
+const char* ssid = "abcd";
+const char* password = "12345678";
+ESP8266WebServer server(80);
+//Check if header is present and correct
+bool is_authentified(){
+ Serial.println("Enter is_authentified");
+  if (server.hasHeader("Cookie")){   
+    Serial.print("Found cookie: ");
+    String cookie = server.header("Cookie");
+    Serial.println(cookie);
+    if (cookie.indexOf("ESPSESSIONID=1") != -1) {
+      Serial.println("Authentification Successful");
+      return true;
+    }
+  }
+  Serial.println("Authentification Failed");
+  return false;  
+}
+//login page, also called for disconnect
+void handleLogin(){
+  String msg;
+  if (server.hasHeader("Cookie")){   
+    Serial.print("Found cookie: ");
+    String cookie = server.header("Cookie");
+    Serial.println(cookie);
+  }
+  if (server.hasArg("DISCONNECT")){
+    Serial.println("Disconnection");
+    String header = "HTTP/1.1 301 OK\r\nSet-Cookie: ESPSESSIONID=0\r\nLocation: /login\r\nCache-Control: no-cache\r\n\r\n";
+    server.sendContent(header);
+    return;
+  }
+  if (server.hasArg("USERNAME") && server.hasArg("PASSWORD")){
+    if (server.arg("USERNAME") == "admin" &&  server.arg("PASSWORD") == "Password" ){
+      String header = "HTTP/1.1 301 OK\r\nSet-Cookie: ESPSESSIONID=1\r\nLocation: /\r\nCache-Control: no-cache\r\n\r\n";
+      server.sendContent(header);
+      Serial.println("Log in Successful");
+      return;
+    }
+  msg = "Wrong username/password! try again.";
+  Serial.println("Log in Failed");
+  }
+  String content = "<!DOCTYPE html><html><style>form {    border: 3px solid #f1f1f1;} input[type=text], input[type=password] {    width: 100%;    padding: 12px 20px;    margin: 8px 0;    display: inline-block;    border: 1px solid #ccc;    box-sizing: border-box;}";
+  content += "button {    background-color: #4CAF50;    color: white;    padding: 14px 20px;    margin: 8px 0;    border: none;    cursor: pointer;    width: 100%;} .cancelbtn {    width: auto;    padding: 10px 18px;    background-color: #f44336;}";
+  content +=".imgcontainer {    text-align: center;    margin: 24px 0 12px 0;} img.avatar {    width: 40%;    border-radius: 50%;} .container {    padding: 16px;} span.psw {    float: right;    padding-top: 16px;} @media screen and (max-width: 300px) {    span.psw {  display: block;       float: none;    }";
+  content +=".cancelbtn {       width: 100%;    }}</style><body>";
+  content +="<h1>An easy Start</h1>";
+  content +="<p>Welcome to the IOT Capture the Flag Challenge</p><p>In order to complete the first challenge successfully, the participants need to light up any of the LEDs connected with the micro-controller. Its Really an easy start!!</p>";
+  content +="<p><b>Hint</b>:Default is Deadly!!<p>";
+  content +="<h2>Login Form</h2><form action='/login'>  <div class='imgcontainer'> ";
+  content +="<img src='data:image/png;base64,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' />  ";
+  content +=" </div> <div class='container'>    <label><b>Username</b></label> <input type='text' name='USERNAME' placeholder='user name'>    <label><b>Password</b></label>    <input type='password' name='PASSWORD' placeholder='password'> <input type='submit' name='SUBMIT' value='Submit'>  </div>";
+  content+="  <div class='container' style='background-color:#f1f1f1'>    <span class='psw'>You also can go <a href='/inline'>here</a></span>  </div></form></body></html>";
+  
+  server.send(200, "text/html", content);
+}
+void hackme(){
+    digitalWrite(2, 0);
+    if (server.hasArg("KEY")){
+    if (server.arg("KEY") == "You solved it"){
+      digitalWrite(4, 1);/*"ted:payment1"*/
+      Serial.println("LED is on");
+      String content = "<html><body><H2>Congratulations! You have completed the second challenge successfully.</H2><br>";
+      content += "In order to Capture the third flag and market your security skills, please <a href=\"/thirdChallcheui\">click here</a></body></html>";
+      server.send(200, "text/html", content);
+      return;
+    }
+    else
+    {
+      String content = "<html><body>Wrong Key entered!!! <br/><br/><form action='/hackme' method='POST'><br>";
+      content += "Enter key:<input type='text' name='KEY' placeholder='Enter Key'><br>";
+      content += "<input type='submit' name='SUBMIT' value='Submit'></form><br>";
+      server.send(200, "text/html", content);
+      return;
+    }
+  }
+  else
+  {
+  String content = "<html><body><form action='/hackme' method='POST'><br>";
+  content += "Enter key:<input type='text' name='KEY' placeholder='Enter Key'><br>";
+  content += "<input type='submit' name='SUBMIT' value='Submit'></form><br>";
+  server.send(200, "text/html", content);
+  }
+}
+//root page can be accessed only if authentification is ok
+void handleRoot(){
+  Serial.println("Enter handleRoot");
+  String header;
+  if (!is_authentified()){
+    String header = "HTTP/1.1 301 OK\r\nLocation: /login\r\nCache-Control: no-cache\r\n\r\n";
+    server.sendContent(header);
+    return;
+  }
+  String content = "<html><body><H2>Congratulations! You have completed the first challenge successfully.</H2><br>";
+  content += "In order to Capture the Second flag, please <a href=\"/secChallwd87d\">click here</a></body></html>";
+  server.send(200, "text/html", content);
+}
+void secChallwd87d(){
+  Serial.println("Second Challenge");
+  String header;
+  if (!is_authentified()){
+    String header = "HTTP/1.1 301 OK\r\nLocation: /login\r\nCache-Control: no-cache\r\n\r\n";
+    server.sendContent(header);
+    return;
+  }
+  String content = "<html><body><H2>Look for the Third Eye</H2><br>";
+  content += "<p>In order to complete the second challenge successfully, the participants need to light up the Green LED connected with the micro-controller.</p>";
+  content += "<p><b>Hint</b>:I was believed to be responsible for the recent massive internet outage and I am found here</p></body></html>";
+  server.send(200, "text/html", content);
+}
+void thirdChallcheui(){
+  Serial.println("Third Challenge");
+  String header;
+  if (!is_authentified()){
+    String header = "HTTP/1.1 301 OK\r\nLocation: /login\r\nCache-Control: no-cache\r\n\r\n";
+    server.sendContent(header);
+    return;
+  }
+  String content = "<html><body><H2>The treasure is in the Firmware</H2><br>";
+  content += "<p>You are an investigating officer of a recent data breach where in the suspect is an employee of the XYZ (breached company) . His laptop got seized and all the investigation officer could retrieve is three files.";
+  content += "It is believed that he was transferring the confidential information with the secret endpoint. </p>";
+  content += "<p>In order to complete the third challenge successfully, the participants need to light up the Blue LED connected with the micro-controller.</p></body></html>";
+  server.send(200, "text/html", content);
+}
+void Cr347ed8y44VND(){
+  Serial.println("Turning on device");
+  String header;
+  if (!is_authentified()){
+    String header = "HTTP/1.1 301 OK\r\nLocation: /login\r\nCache-Control: no-cache\r\n\r\n";
+    server.sendContent(header);
+    return;
+  }
+  String content = "<html><body><H2>Congratulations! You have completed the third challenge successfully.</H2><br>";
+  content += "In order to Capture the fourth flag and be recognized as a rock start CTF champ, please <a href=\"/chal4pwkd\">click here</a></body></html>";
+  digitalWrite(5, 1);
+  server.send(200, "text/html", content);
+}
+void smartshine()
+{
+  Serial.println("Special mode");
+  
+  //first character J
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500);
+  for (uint8_t i=0; i<2; i++){
+   
+  digitalWrite(4, 1);   // turn the LED on (HIGH is the voltage level)
+                       // wait for a second
+     // turn the LED off by making the voltage LOW
+  delay(1000);
+  digitalWrite(4, 0);
+  delay(500);
+  }
+   
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0); 
+  delay(500);
+  digitalWrite(4, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500);
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500);
+  digitalWrite(4, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(3000);
+//second letter O
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500);
+  for (uint8_t i=0; i<2; i++){
+  
+  digitalWrite(4, 1);                     // wait for a second
+  //digitalWrite(2, 0);    // turn the LED off by making the voltage LOW
+  delay(1000);
+  digitalWrite(4, 0);
+  delay(500);// wait for a second
+  }
+  
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500); 
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500);
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(500);
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0); 
+  digitalWrite(2, 0);
+  delay(3000);
+
+  //third letter H
+  digitalWrite(2, 1);
+  delay(1000);
+  digitalWrite(4, 0);
+  digitalWrite(2, 0);
+  delay(500);
+  for (uint8_t i=0; i<2; i++){
+  
+  digitalWrite(4, 1);   // turn the LED on (HIGH is the voltage level)
+                       // wait for a second
+  //digitalWrite(2, 0);    // turn the LED off by making the voltage LOW
+  delay(1000);
+  digitalWrite(4, 0);
+  delay(500);// wait for a second
+  }
+  
+  
+  digitalWrite(4, 0);
+  digitalWrite(2, 0);
+  delay(500);
+  for (uint8_t i=0; i<2; i++){
+  
+  digitalWrite(4, 1);   // turn the LED on (HIGH is the voltage level)
+  delay(1000);                     // wait for a second
+  digitalWrite(4, 0);    // turn the LED off by making the voltage LOW
+  delay(500);                       // wait for a second
+  }
+
+   digitalWrite(4, 0);
+  digitalWrite(2, 0);
+    
+  String content = "<html><body><H2>Check the LED</H2><br>";
+  server.send(200, "text/html", content);
+}
+//no need authentification
+void handleNotFound(){
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET)?"GET":"POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i=0; i<server.args(); i++){
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  server.send(404, "text/plain", message);
+}
+void setup(void){
+  Serial.begin(115200);
+    delay(10);
+
+  // prepare GPIO2
+  pinMode(2, OUTPUT);
+  //prepare GPIO4
+  pinMode(4, OUTPUT);
+  pinMode(5, OUTPUT);
+  pinMode(12, OUTPUT);
+  pinMode(13, OUTPUT);
+  pinMode(14, OUTPUT);
+  pinMode(16, OUTPUT);
+  digitalWrite(2, 0);
+  digitalWrite(4, 0);
+  WiFi.begin(ssid, password);
+  Serial.println("");
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  server.on("/", handleRoot);
+  server.on("/hackme", hackme);
+  server.on("/log.txt", [](){
+    server.send(200, "text/plain", "WW91IHNvbHZlZCBpdA==");
+  });
+  server.on("/key", [](){
+    server.send(200, "text/plain", "TmljZSB0cnkhISE=");
+  });
+  server.on("/inline", [](){
+    server.send(200, "text/plain", "Have fun");
+  });
+  server.on("/passphrase", [](){
+    server.send(200, "text/plain", "WW91IGtub3cgaXQhISE=");
+  });
+  server.on("/password", [](){
+    server.send(200, "text/plain", "QXNrIERldmVzaCEhIQ==");
+  });
+  server.onNotFound(handleNotFound);
+  //here the list of headers to be recorded
+  const char * headerkeys[] = {"User-Agent","Cookie"} ;
+  size_t headerkeyssize = sizeof(headerkeys)/sizeof(char*);
+  //ask server to track these headers
+  server.collectHeaders(headerkeys, headerkeyssize );
+  server.begin();
+  Serial.println("HTTP server started");
+}
+void loop(void){
+  server.handleClient();
+}

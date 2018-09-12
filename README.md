@@ -1,1 +1,1 @@
-# test
+# smart_devices
